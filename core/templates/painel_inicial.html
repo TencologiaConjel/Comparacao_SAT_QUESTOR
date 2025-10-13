@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Painel Inicial{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <!-- Card principal de importação -->
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="fa-solid fa-file-import me-2"></i>
+          Importar Planilha SAT
+        </h5>
+        <span class="badge bg-white text-primary">Nova Importação</span>
+      </div>
+
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'sat_importar' %}" enctype="multipart/form-data" id="form-import" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+            <!-- Seleção de empresa -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="fa-solid fa-building me-1 text-muted"></i>
+                Empresa
+              </label>
+              <select class="form-select form-select-lg" name="empresa_id" id="empresa" required>
+                <option value="" selected disabled>Selecione uma empresa...</option>
+                {% for e in empresas %}
+                  <option value="{{ e.id }}">{{ e.nome }} — {{ e.cnpj }}</option>
+                {% empty %}
+                  <option disabled>Nenhuma empresa cadastrada</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Upload de arquivo -->
+            <div class="col-md-6">
+              <label for="arquivo" class="form-label fw-semibold">
+                <i class="fa-solid fa-file-excel me-1 text-muted"></i>
+                Arquivo Excel
+              </label>
+              <input
+                class="form-control form-control-lg"
+                type="file"
+                id="arquivo"
+                name="arquivo"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                required
+              >
+              <div class="form-text">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                Formatos aceitos: .xlsx
+              </div>
+            </div>
+
+            <!-- Preview do arquivo selecionado -->
+            <div class="col-12" id="file-preview" style="display:none;" aria-live="polite">
+              <div class="alert alert-info d-flex align-items-center">
+                <i class="fa-solid fa-file-excel fa-2x me-3"></i>
+                <div class="flex-grow-1">
+                  <strong>Arquivo selecionado:</strong>
+                  <div id="file-name" class="mt-1"></div>
+                  <small id="file-size" class="text-muted"></small>
+                </div>
+                <button type="button" class="btn-close" id="clear-file" aria-label="Remover arquivo"></button>
+              </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="col-12">
+              <div class="d-grid gap-2 d-md-block">
+                <button type="submit" class="btn btn-primary btn-lg px-4" id="btn-import">
+                  <i class="fa-solid fa-cloud-arrow-up me-2"></i>
+                  Importar Planilha
+                </button>
+                <button type="reset" class="btn btn-outline-secondary btn-lg px-4 ms-md-2" id="btn-reset">
+                  <i class="fa-solid fa-arrow-rotate-left me-2"></i>
+                  Limpar
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Progresso -->
+        <div id="progress-container" style="display:none;" class="mt-4" aria-live="polite">
+          <div class="d-flex justify-content-between mb-2">
+            <small class="text-muted">Processando arquivo...</small>
+            <small class="text-muted"><span id="progress-text">0%</span></small>
+          </div>
+          <div class="progress" style="height:20px;" aria-label="Progresso da importação">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 id="progress-bar"
+                 role="progressbar"
+                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                 style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lateral -->
+  <div class="col-12 col-lg-4">
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header bg-light">
+        <h6 class="mb-0">Dicas para Importação</h6>
+      </div>
+      <div class="card-body">
+        <ul class="list-unstyled mb-0">
+          <li class="mb-3">
+            <i class="fa-solid fa-circle-check text-success me-2"></i>
+            <small>Selecione a <strong>empresa correta</strong> antes de importar</small>
+          </li>
+          <li class="mb-3">
+            <i class="fa-solid fa-circle-check text-success me-2"></i>
+            <small>O arquivo deve estar no formato <strong>.xlsx</strong></small>
+          </li>
+          <li class="mb-3">
+            <i class="fa-solid fa-circle-check text-success me-2"></i>
+            <small>Verifique se os <strong>cabeçalhos</strong> estão corretos</small>
+          </li>
+          <li>
+            <i class="fa-solid fa-circle-check text-success me-2"></i>
+            <small>Evite arquivos com mais de <strong>10MB</strong></small>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:11">
+  <div id="notification-toast" class="toast align-items-center"
+       role="alert" aria-live="assertive" aria-atomic="true"
+       data-bs-autohide="true" data-bs-delay="5000">
+    <div class="d-flex">
+      <div class="toast-body" id="toast-message"></div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const form = document.getElementById('form-import');
+  const btn = document.getElementById('btn-import');
+  const btnReset = document.getElementById('btn-reset');
+  const inputFile = document.getElementById('arquivo');
+  const filePreview = document.getElementById('file-preview');
+  const fileName = document.getElementById('file-name');
+  const fileSize = document.getElementById('file-size');
+  const clearFile = document.getElementById('clear-file');
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
+  const empresaSelect = document.getElementById('empresa');
+
+  let progressInterval = null;
+
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024, sizes = ['Bytes','KB','MB','GB'];
+    const i = Math.floor(Math.log(bytes)/Math.log(k));
+    return Math.round(bytes/Math.pow(k,i)*100)/100 + ' ' + sizes[i];
+  }
+
+  function showToast(message, type='info') {
+    const toast = document.getElementById('notification-toast');
+    const toastMessage = document.getElementById('toast-message');
+    toast.classList.remove('bg-success','bg-danger','bg-warning','bg-info','text-white');
+    if (['success','danger','warning','info'].includes(type)) {
+      toast.classList.add('bg-' + type, 'text-white');
+    }
+    toastMessage.textContent = message;
+    new bootstrap.Toast(toast).show();
+  }
+
+  // Preview do arquivo
+  inputFile.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) { filePreview.style.display = 'none'; return; }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Arquivo muito grande! Tamanho máximo: 10MB', 'warning');
+      inputFile.value = ''; filePreview.style.display = 'none'; return;
+    }
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      showToast('Formato inválido! Use apenas arquivos .xlsx', 'danger');
+      inputFile.value = ''; filePreview.style.display = 'none'; return;
+    }
+
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+    filePreview.style.display = 'block';
+  });
+
+  // Limpar arquivo
+  clearFile.addEventListener('click', function() {
+    inputFile.value = ''; filePreview.style.display = 'none';
+  });
+
+  // Reset
+  btnReset.addEventListener('click', function() {
+    filePreview.style.display = 'none';
+    progressContainer.style.display = 'none';
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    progressBar.style.width = '0%';
+    progressBar.setAttribute('aria-valuenow', '0');
+    progressText.textContent = '0%';
+  });
+
+  // Submit
+  form.addEventListener('submit', function(e) {
+    if (btn.disabled) { e.preventDefault(); return; } // evita duplo submit
+
+    if (!empresaSelect.value) {
+      e.preventDefault(); showToast('Por favor, selecione uma empresa', 'warning');
+      empresaSelect.focus(); return;
+    }
+    if (!inputFile.files.length) {
+      e.preventDefault(); showToast('Por favor, selecione um arquivo .xlsx', 'warning');
+      inputFile.focus(); return;
+    }
+
+    btn.disabled = true; btnReset.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Importando...';
+
+    progressContainer.style.display = 'block';
+    let progress = 0;
+    progressInterval = setInterval(function() {
+      progress = Math.min(90, progress + Math.random() * 15);
+      progressBar.style.width = progress + '%';
+      progressBar.setAttribute('aria-valuenow', String(Math.round(progress)));
+      progressText.textContent = Math.round(progress) + '%';
+    }, 200);
+  });
+
+  // Acessibilidade/feedback visual
+  empresaSelect.addEventListener('change', function() {
+    if (this.value) {
+      this.classList.add('border-success');
+      setTimeout(() => this.classList.remove('border-success'), 1000);
+    }
+  });
+
+  // Limpa o intervalo ao trocar de página
+  window.addEventListener('beforeunload', function() {
+    if (progressInterval) clearInterval(progressInterval);
+  });
+})();
+</script>
+{% endblock %}

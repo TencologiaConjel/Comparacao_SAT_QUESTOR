@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Comparar Questor × Banco{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-gradient text-white d-flex align-items-center justify-content-between py-3" 
+           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div>
+          <h4 class="mb-1"><i class="fa-solid fa-scale-balanced me-2"></i>Comparar Questor × Banco</h4>
+          <small class="opacity-90">Compare automaticamente os lançamentos do Questor com o extrato bancário</small>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+        <div class="alert alert-info border-0 mb-4" style="background-color: #e7f3ff;">
+          <i class="fa-solid fa-circle-info me-2"></i>
+          <strong>Dica:</strong> Filtre o mesmo período usado no Questor para uma comparação precisa. 
+          Janelas de 5-10 dias funcionam melhor.
+        </div>
+
+        <form method="post" action="{% url 'comparar_questor' %}" enctype="multipart/form-data" id="form-cmp">
+          {% csrf_token %}
+
+          <div class="row g-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="fa-solid fa-building me-2 text-primary"></i>Empresa
+                <span class="text-danger">*</span>
+              </label>
+              <select class="form-select form-select-lg" name="empresa_id" id="empresa_id" required>
+                <option value="" selected disabled>Selecione uma empresa...</option>
+                {% for e in empresas %}
+                  <option value="{{ e.id }}">{{ e.nome }} — {{ e.cnpj }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">
+                <i class="fa-solid fa-info-circle me-1"></i>
+                Escolha a empresa para comparação
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="fa-solid fa-file-excel me-2 text-success"></i>Planilha do Questor
+                <span class="text-danger">*</span>
+              </label>
+              <input class="form-control form-control-lg" type="file" name="arquivo" id="arquivo"
+                     accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+              <div class="form-text">
+                <i class="fa-solid fa-arrow-up-from-bracket me-1"></i>
+                Formato: Excel (.xlsx) com colunas <em>Documento</em> e <em>Valor Contábil</em>
+              </div>
+              <div id="file-info" class="mt-2 small text-success d-none">
+                <i class="fa-solid fa-check-circle me-1"></i>
+                <span id="file-name"></span>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card bg-light border-0">
+                <div class="card-body">
+                  <h6 class="mb-3">
+                    <i class="fa-regular fa-calendar-range me-2 text-primary"></i>
+                    Período de Análise
+                  </h6>
+                  
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label fw-semibold">
+                        Data Inicial <span class="text-danger">*</span>
+                      </label>
+                      <input type="date" class="form-control form-control-lg" name="inicio" id="inicio"
+                             value="{{ inicio_default|date:'Y-m-d' }}" max="{{ fim_default|date:'Y-m-d' }}" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                      <label class="form-label fw-semibold">
+                        Data Final <span class="text-danger">*</span>
+                      </label>
+                      <input type="date" class="form-control form-control-lg" name="fim" id="fim"
+                             value="{{ fim_default|date:'Y-m-d' }}" max="{{ fim_default|date:'Y-m-d' }}" required>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label fw-semibold">Atalhos Rápidos</label>
+                      <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary" data-days="5" title="Últimos 5 dias">
+                          5d
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" data-days="7" title="Última semana">
+                          7d
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" data-days="10" title="Últimos 10 dias">
+                          10d
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" data-days="30" title="Último mês">
+                          30d
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="range-info" class="mt-3 p-2 rounded d-none" style="background-color: #f8f9fa;">
+                    <small class="text-muted">
+                      <i class="fa-solid fa-calendar-days me-1"></i>
+                      <strong>Período selecionado:</strong> <span id="range-text"></span>
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div id="range-alert" class="alert alert-warning border-0 d-none" role="alert">
+                <i class="fa-solid fa-exclamation-triangle me-2"></i>
+                <strong>Atenção!</strong> 
+                <span id="range-alert-text">
+                  O período deve ter entre 1 e 31 dias e a data inicial não pode ser posterior à data final.
+                </span>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex gap-2 flex-wrap">
+                <button id="btn-submit" type="submit" class="btn btn-primary btn-lg px-4">
+                  <span class="btn-label">
+                    <i class="fa-solid fa-magnifying-glass-chart me-2"></i>Iniciar Comparação
+                  </span>
+                  <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                </button>
+
+                <a href="{% url 'painel_inicial' %}" class="btn btn-outline-secondary btn-lg px-4">
+                  <i class="fa-solid fa-arrow-left me-2"></i>Voltar ao Painel
+                </a>
+
+                <button type="reset" class="btn btn-outline-danger btn-lg px-4 ms-auto" id="btn-reset">
+                  <i class="fa-solid fa-rotate-left me-2"></i>Limpar Formulário
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .card {
+    transition: all 0.3s ease;
+  }
+  
+  .form-select:focus,
+  .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+  }
+  
+  .btn-group .btn {
+    font-weight: 600;
+  }
+  
+  .btn-group .btn:hover {
+    transform: translateY(-2px);
+    transition: all 0.2s;
+  }
+  
+  #btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .alert {
+    animation: slideDown 0.3s ease;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<script>
+(function() {
+  const form      = document.getElementById('form-cmp');
+  if (!form) return;
+
+  const inicio    = document.getElementById('inicio');
+  const fim       = document.getElementById('fim');
+  const arquivo   = document.getElementById('arquivo');
+  const btns      = form.querySelectorAll('button[data-days]');
+  const btnSubmit = document.getElementById('btn-submit');
+  const btnReset  = document.getElementById('btn-reset');
+  const spinner   = btnSubmit?.querySelector('.spinner-border');
+  const label     = btnSubmit?.querySelector('.btn-label');
+  const alertBox  = document.getElementById('range-alert');
+  const alertText = document.getElementById('range-alert-text');
+  const rangeInfo = document.getElementById('range-info');
+  const rangeText = document.getElementById('range-text');
+  const fileInfo  = document.getElementById('file-info');
+  const fileName  = document.getElementById('file-name');
+
+  function parseISO(d) {
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    const dt = new Date(d + 'T00:00:00');
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  function fmtISO(dt) {
+    return dt.toISOString().slice(0, 10);
+  }
+
+  function fmtBR(d) {
+    const dt = parseISO(d);
+    if (!dt) return '';
+    return dt.toLocaleDateString('pt-BR');
+  }
+
+  function daysBetweenISO(a, b) {
+    const A = parseISO(a), B = parseISO(b);
+    if (!A || !B) return null;
+    const ms = (B - A);
+    return Math.floor(ms / 86400000) + 1;
+  }
+
+  function validateRange() {
+    if (!inicio || !fim) return true;
+    
+    const d = daysBetweenISO(inicio.value, fim.value);
+    const A = parseISO(inicio.value), B = parseISO(fim.value);
+
+    const okOrder = !!A && !!B && A <= B;
+    const okSize  = !!d && d >= 1 && d <= 31;
+
+    let message = '';
+    if (!okOrder) {
+      message = 'A data inicial não pode ser posterior à data final.';
+    } else if (!okSize) {
+      message = `O período deve ter entre 1 e 31 dias. Período atual: ${d || 0} dias.`;
+    }
+
+    const ok = okOrder && okSize;
+
+    if (alertBox) {
+      alertBox.classList.toggle('d-none', ok);
+      if (alertText && message) alertText.textContent = message;
+    }
+
+    if (rangeInfo && rangeText && ok && d) {
+      rangeInfo.classList.remove('d-none');
+      rangeText.textContent = `${fmtBR(inicio.value)} até ${fmtBR(fim.value)} (${d} dia${d > 1 ? 's' : ''})`;
+    } else if (rangeInfo) {
+      rangeInfo.classList.add('d-none');
+    }
+
+    return ok;
+  }
+
+  function setRangeByDays(days) {
+    const end = parseISO(fim.value || '{{ fim_default|date:"Y-m-d" }}');
+    if (!end) return;
+    const start = new Date(end);
+    start.setDate(end.getDate() - (days - 1));
+    inicio.value = fmtISO(start);
+    validateRange();
+  }
+
+  btns.forEach(b => {
+    b.addEventListener('click', e => {
+      e.preventDefault();
+      const days = parseInt(e.currentTarget.dataset.days, 10);
+      setRangeByDays(days);
+      
+      btns.forEach(btn => btn.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+    });
+  });
+
+  form.addEventListener('submit', (e) => {
+    if (!validateRange()) {
+      e.preventDefault();
+      alertBox?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      spinner?.classList.remove('d-none');
+      label?.classList.add('opacity-50');
+      btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processando...';
+    }
+  });
+
+  inicio?.addEventListener('change', validateRange);
+  fim?.addEventListener('change', validateRange);
+
+  arquivo?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file && fileInfo && fileName) {
+      fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+      fileInfo.classList.remove('d-none');
+    } else if (fileInfo) {
+      fileInfo.classList.add('d-none');
+    }
+  });
+
+  btnReset?.addEventListener('click', () => {
+    fileInfo?.classList.add('d-none');
+    rangeInfo?.classList.add('d-none');
+    alertBox?.classList.add('d-none');
+    btns.forEach(btn => btn.classList.remove('active'));
+  });
+
+  validateRange();
+})();
+</script>
+
+{% endblock %}

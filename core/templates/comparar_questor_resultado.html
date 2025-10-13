@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Resultado da Comparação - Questor × SAT{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+  <div>
+    <h3 class="mb-1">
+      <i class="fa-solid fa-scale-balanced me-2 text-primary"></i>
+      Resultado da Comparação
+    </h3>
+    <p class="text-muted small mb-0">Análise de divergências entre sistemas Questor e SAT</p>
+  </div>
+
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'comparar_questor_csv' %}" class="btn btn-success btn-sm">
+      <i class="fa-solid fa-file-csv me-1"></i> Exportar CSV
+    </a>
+    <a href="{% url 'comparar_questor_form' %}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-rotate me-1"></i> Nova Comparação
+    </a>
+    <a href="{% url 'painel_inicial' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="fa-solid fa-arrow-left me-1"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<!-- Company Info Card -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-md-6">
+        <div class="d-flex align-items-start">
+          <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+            <i class="fa-solid fa-building text-primary fa-lg"></i>
+          </div>
+          <div>
+            <div class="text-muted small mb-1">Empresa</div>
+            <div class="fw-semibold">{{ empresa.nome }}</div>
+            <div class="text-muted small">CNPJ: {{ empresa.cnpj }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="d-flex align-items-start">
+          <div class="bg-info bg-opacity-10 rounded p-2 me-3">
+            <i class="fa-solid fa-file-lines text-info fa-lg"></i>
+          </div>
+          <div>
+            <div class="text-muted small mb-1">Arquivo Questor</div>
+            <div class="fw-semibold text-truncate" style="max-width: 300px;" title="{{ arquivo_nome }}">
+              {{ arquivo_nome }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6 col-lg-3">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small">Período</span>
+          <i class="fa-solid fa-calendar-range text-muted"></i>
+        </div>
+        <div class="fw-bold">{{ inicio|default:"—" }}</div>
+        <div class="text-muted small">até {{ fim|default:"—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-3">
+    <div class="card shadow-sm border-0 h-100 border-start border-primary border-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small">Registros SAT</span>
+          <i class="fa-solid fa-receipt text-primary"></i>
+        </div>
+        <div class="h4 mb-1 fw-bold text-primary">{{ sat_linhas_periodo|default:0 }}</div>
+        <div class="text-muted small">no período</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-3">
+    <div class="card shadow-sm border-0 h-100 border-start border-secondary border-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small">Linhas Questor</span>
+          <i class="fa-solid fa-file-invoice text-secondary"></i>
+        </div>
+        <div class="h4 mb-1 fw-bold text-secondary">{{ linhas_lidas|default:0 }}</div>
+        <div class="text-muted small">processadas</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-3">
+    <div class="card shadow-sm border-0 h-100 border-start border-info border-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small">Cancelados SAT</span>
+          <i class="fa-solid fa-ban text-info"></i>
+        </div>
+        <div class="h4 mb-1 fw-bold text-info">{{ candidatos_cancelados|default:0 }}</div>
+        <div class="text-muted small">documentos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Matching Statistics -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0 h-100 bg-success bg-opacity-10 border-start border-success border-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small mb-1">Documentos Pareados</div>
+            <div class="h3 mb-0 fw-bold text-success">{{ pareadas|default:0 }}</div>
+          </div>
+          <div class="bg-success bg-opacity-25 rounded-circle p-3">
+            <i class="fa-solid fa-check-double text-success fa-2x"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0 h-100 bg-warning bg-opacity-10 border-start border-warning border-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small mb-1">Não Encontrados</div>
+            <div class="h3 mb-0 fw-bold text-warning">{{ nao_encontradas|default:0 }}</div>
+          </div>
+          <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+            <i class="fa-solid fa-exclamation-triangle text-warning fa-2x"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Validation Result -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body">
+    {% if total_erros|default:0 > 0 %}
+      <div class="alert alert-danger border-0 shadow-sm mb-0">
+        <div class="d-flex align-items-start">
+          <div class="me-3">
+            <i class="fa-solid fa-circle-exclamation fa-2x"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h5 class="alert-heading mb-2">
+              <strong>{{ total_erros }}</strong> divergência(s) encontrada(s)
+            </h5>
+            <p class="mb-0">
+              <strong>Regra de validação:</strong> Documentos com situação "Cancelado(a)" no SAT devem apresentar Valor Contábil igual a <code class="text-danger">R$ 0,00</code> no Questor.
+            </p>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert-success border-0 shadow-sm mb-0">
+        <div class="d-flex align-items-start">
+          <div class="me-3">
+            <i class="fa-solid fa-circle-check fa-2x"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h5 class="alert-heading mb-2">Validação concluída com sucesso!</h5>
+            <p class="mb-0">
+              Nenhuma divergência identificada. Todos os documentos cancelados no SAT possuem <strong>Valor Contábil = R$ 0,00</strong> no Questor.
+            </p>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Comparative Totals Card -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header bg-light border-0 py-3">
+    <div class="d-flex align-items-center">
+      <i class="fa-solid fa-chart-line me-2 text-primary"></i>
+      <h5 class="mb-0">Totais Consolidados do Período</h5>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 200px;" class="ps-4">Sistema</th>
+            <th class="text-end">Valor Total das Notas</th>
+            <th class="text-end">Base de Cálculo ICMS</th>
+            <th class="text-end pe-4">Valor ICMS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ps-4">
+              <div class="d-flex align-items-center">
+                <div class="bg-secondary bg-opacity-10 rounded px-2 py-1 me-2">
+                  <i class="fa-solid fa-database text-secondary"></i>
+                </div>
+                <span class="fw-semibold">Questor</span>
+              </div>
+            </td>
+            <td class="text-end font-monospace">{{ totais_questor.valor_total|default:"R$ 0,00" }}</td>
+            <td class="text-end font-monospace">{{ totais_questor.bc_icms|default:"R$ 0,00" }}</td>
+            <td class="text-end font-monospace pe-4">{{ totais_questor.valor_icms|default:"R$ 0,00" }}</td>
+          </tr>
+          <tr>
+            <td class="ps-4">
+              <div class="d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 rounded px-2 py-1 me-2">
+                  <i class="fa-solid fa-receipt text-primary"></i>
+                </div>
+                <span class="fw-semibold">SAT</span>
+              </div>
+            </td>
+            <td class="text-end font-monospace">{{ totais_sat.valor_total|default:"R$ 0,00" }}</td>
+            <td class="text-end font-monospace">{{ totais_sat.bc_icms|default:"R$ 0,00" }}</td>
+            <td class="text-end font-monospace pe-4">{{ totais_sat.valor_icms|default:"R$ 0,00" }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer bg-light border-0">
+    <div class="d-flex align-items-start">
+      <i class="fa-solid fa-circle-info text-info me-2 mt-1"></i>
+      <small class="text-muted">
+        <strong>Observação:</strong> No Questor, os valores são consolidados por <code>número|série</code>. Linhas repetidas são somadas por documento.
+      </small>
+    </div>
+  </div>
+</div>
+
+<!-- Divergences Table -->
+{% if total_erros|default:0 > 0 %}
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-light border-0 py-3">
+    <div class="row align-items-center g-3">
+      <div class="col-md-6">
+        <div class="d-flex align-items-center">
+          <i class="fa-solid fa-table-list me-2 text-danger"></i>
+          <h5 class="mb-0">Detalhamento das Divergências</h5>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="input-group">
+          <span class="input-group-text bg-white">
+            <i class="fa-solid fa-magnifying-glass text-muted"></i>
+          </span>
+          <input 
+            type="text" 
+            id="filter-input" 
+            class="form-control" 
+            placeholder="Filtrar por documento, série..."
+            aria-label="Filtro de busca">
+          <button class="btn btn-outline-secondary" type="button" id="clear-filter">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+    <table class="table table-hover align-middle mb-0" id="result-table">
+      <thead class="table-light position-sticky top-0" style="z-index: 10;">
+        <tr>
+          <th style="width:70px" class="text-center">#</th>
+          <th>Documento</th>
+          <th>Série</th>
+          <th class="text-end">Valor Questor</th>
+          <th>Status SAT</th>
+          <th class="text-end">Valor Total SAT</th>
+          <th>ID SAT</th>
+          <th>Localização</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in erros %}
+        <tr>
+          <td class="text-center text-muted">
+            <span class="badge bg-light text-dark">{{ forloop.counter }}</span>
+          </td>
+          <td>
+            <code class="doc bg-light px-2 py-1 rounded">{{ e.documento }}</code>
+          </td>
+          <td>
+            <code class="serie bg-light px-2 py-1 rounded">{{ e.serie }}</code>
+          </td>
+          <td class="text-end font-monospace">
+            <span class="badge bg-danger bg-opacity-10 text-danger">{{ e.valor_questor }}</span>
+          </td>
+          <td>
+            <span class="badge bg-warning text-dark">{{ e.status_sat }}</span>
+          </td>
+          <td class="text-end font-monospace">{{ e.valor_sat }}</td>
+          <td>
+            <small class="text-muted font-monospace">{{ e.id_sat|truncatechars:20 }}</small>
+          </td>
+          <td>
+            <small class="text-muted">
+              <i class="fa-solid fa-file-lines me-1"></i>
+              <code class="bg-light px-1">{{ e.sheet_sat }}</code>
+              <span class="mx-1">•</span>
+              Linha {{ e.row_sat }}
+            </small>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-5">
+            <i class="fa-solid fa-inbox fa-3x mb-3 d-block opacity-25"></i>
+            <p class="mb-0">Nenhuma divergência para exibir.</p>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-light border-0">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <small class="text-muted">
+        <i class="fa-solid fa-circle-info me-1"></i>
+        Exibindo até <strong>500 registros</strong>. Para visualizar a lista completa, exporte o arquivo CSV.
+      </small>
+      <span class="badge bg-primary" id="row-counter">
+        {{ total_erros }} registro(s)
+      </span>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function() {
+    'use strict';
+    
+    const input = document.getElementById('filter-input');
+    const clearBtn = document.getElementById('clear-filter');
+    const table = document.getElementById('result-table');
+    const counter = document.getElementById('row-counter');
+    
+    if (!input || !table) return;
+    
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const totalRows = tbody.rows.length;
+    
+    function updateCounter() {
+      const visibleRows = Array.from(tbody.rows).filter(row => row.style.display !== 'none').length;
+      if (counter) {
+        counter.textContent = `${visibleRows} de ${totalRows} registro(s)`;
+      }
+    }
+    
+    function filterTable() {
+      const query = input.value.trim().toLowerCase();
+      let visibleCount = 0;
+      
+      Array.from(tbody.rows).forEach(tr => {
+        const doc = (tr.querySelector('.doc')?.textContent || '').toLowerCase();
+        const serie = (tr.querySelector('.serie')?.textContent || '').toLowerCase();
+        const match = doc.includes(query) || serie.includes(query);
+        
+        tr.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+      });
+      
+      updateCounter();
+    }
+    
+    input.addEventListener('input', filterTable);
+    
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        input.value = '';
+        filterTable();
+        input.focus();
+      });
+    }
+    
+    updateCounter();
+  })();
+</script>
+{% endblock %}
