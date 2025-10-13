@@ -985,17 +985,3 @@ def comparar_questor_csv(request):
     resp["Content-Disposition"] = f'attachment; filename="{fname}"'
     wb.save(resp)
     return resp
-
-from django.contrib.auth import get_user_model
-User = get_user_model()
-from django.http import JsonResponse
-
-def create_admin(request):
-    if User.objects.filter(is_superuser = True, username = 'admin').exists():
-        return JsonResponse({'ok': True, 'msg': 'This user already exist'})
-    
-    user = User.objects.create_superuser(
-        username='admin',
-        password='admin@1234',
-    )
-    return JsonResponse({'ok':True, 'msg':'Super User Created'})
