@@ -1,7 +1,6 @@
 from decimal import Decimal, InvalidOperation
 import re, time, unicodedata
 from datetime import datetime, date, timedelta
-
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
@@ -9,15 +8,10 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
-
 from .models import Empresa, LoginLog, SatRegistro
-
-
-# ------------------ Utils básicos ------------------
 
 def _slugify_field(name: str) -> str:
     if name is None:
@@ -58,9 +52,6 @@ def _parse_decimal(v):
         return Decimal(s)
     except InvalidOperation:
         return Decimal("0")
-
-
-# ------------------ Normalização/extrações ------------------
 
 def _is_cancelado(txt: str) -> bool:
     return bool(txt) and "cancel" in str(txt).strip().lower()
@@ -147,9 +138,6 @@ def _status_legivel(d: dict) -> str:
         return "AUTORIZADA"
     return (s or "DESCONHECIDO").strip().upper()
 
-
-# ------------------ Datas e competência ------------------
-
 _DT_FMTS = (
     "%d/%m/%y","%d/%m/%Y","%Y-%m-%d","%d-%m-%Y","%d.%m.%Y",
     "%Y-%m-%d %H:%M","%Y-%m-%d %H:%M:%S",
@@ -201,18 +189,15 @@ def _parse_competencia_str(s: str | None) -> date | None:
         return None
     t = s.strip()
     try:
-        if "-" in t:  # YYYY-MM
+        if "-" in t:  
             y, m = t.split("-", 1)
             return date(int(y), int(m), 1)
-        if "/" in t:  # MM/YYYY
+        if "/" in t:  
             m, y = t.split("/", 1)
             return date(int(y), int(m), 1)
     except Exception:
         return None
     return None
-
-
-# ------------------ Auth e páginas simples ------------------
 
 def login_view(request):
     if request.method == 'POST':
@@ -254,21 +239,10 @@ def painel_inicial(request):
     empresas = Empresa.objects.all().order_by("nome")
     return render(request, "painel_inicial.html", {"empresas": empresas})
 
-
-# ------------------ IMPORTAÇÃO SAT (usa competência) ------------------
-
 @login_required
 @require_POST
 @transaction.atomic
 def sat_importar(request):
-    """
-    Importa XLSX do SAT com UPSERT pela chave:
-    (empresa, competencia, sheet, row).
-    - Se mudar a competência (mês), será INSERT.
-    - Se for a mesma competência, será UPDATE.
-    Opcional: campo 'competencia' vindo do form (YYYY-MM ou MM/YYYY)
-    caso a planilha não tenha data de emissão por linha.
-    """
     empresa_id = request.POST.get("empresa_id")
     arquivo    = request.FILES.get("arquivo")
     comp_param = _parse_competencia_str(request.POST.get("competencia"))
@@ -293,8 +267,6 @@ def sat_importar(request):
     criados = atualizados = ignorados_vazios = 0
     to_create: list[SatRegistro] = []
     to_update: list[SatRegistro] = []
-
-    # mapa existentes: (empresa, competencia, sheet, row)
     exist_map: dict[tuple, SatRegistro] = {}
     for reg in SatRegistro.objects.filter(empresa=empresa).only("competencia", "sheet", "row"):
         exist_map[(empresa.id, reg.competencia, reg.sheet, reg.row)] = reg
@@ -385,11 +357,6 @@ def sat_importar(request):
         f"Criados: {criados} • Atualizados: {atualizados} • Ignorados vazios: {ignorados_vazios} • Tempo: {duracao}s."
     )
     return redirect("painel_inicial")
-
-
-# ============================================================
-# Comparação Questor × SAT
-# ============================================================
 
 @login_required
 def comparar_questor_form(request):
@@ -605,7 +572,6 @@ def _sat_totais_periodo(qs, dt_ini: date | None, dt_fim: date | None) -> dict:
         tot_valor += v_nota; tot_bc += v_bc; tot_icms += v_icms
     return {"valor_total": tot_valor, "bc_icms": tot_bc, "valor_icms": tot_icms}
 
-
 @login_required
 @require_POST
 def comparar_questor(request):
@@ -656,13 +622,11 @@ def comparar_questor(request):
     qs_sat = SatRegistro.objects.filter(empresa=empresa).only("data","sheet","row")
     qs_sat_tot = SatRegistro.objects.filter(empresa=empresa).only("data")
     totais_sat = _sat_totais_periodo(qs_sat_tot, dt_ini, dt_fim)
-
     divergencias = []
     candidatos = pareadas = nao_encontradas = 0
     sat_considerados = 0
     sat_total_periodo = 0
 
-    # Canceladas pareáveis
     for reg in qs_sat.iterator():
         d = reg.data or {}
         dt_em = _extr_data_emissao_dict(d)
@@ -709,7 +673,6 @@ def comparar_questor(request):
                 "row_sat": reg.row,
             })
 
-    # Autorizadas fora do Questor
     autorizadas_fora = []
     vistos_aut = set()
     for reg in qs_sat.iterator():
@@ -779,9 +742,6 @@ def comparar_questor(request):
     )
     return redirect("comparar_questor_resultado")
 
-
-# ------------------ Exportação XLSX ------------------
-
 @login_required
 def comparar_questor_csv(request):
     data = request.session.get("questor_cmp")
@@ -831,13 +791,9 @@ def comparar_questor_csv(request):
     center_align = Alignment(horizontal="center", vertical="center")
     status_cancel_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
     status_ok_fill     = PatternFill(start_color="D1E7DD", end_color="D1E7DD", fill_type="solid")
-
     wb = Workbook()
-
-    # Aba 1: Divergências (com resumo)
     ws = wb.active
     ws.title = "Divergências"
-
     ws.append(["RESUMO DA ANÁLISE"])
     ws["A1"].font = Font(bold=True, size=14)
     ws.append(["Empresa", empresa.nome])
@@ -846,7 +802,6 @@ def comparar_questor_csv(request):
     ws.append(["Período Início", data.get("inicio") or "—"])
     ws.append(["Período Fim", data.get("fim") or "—"])
     ws.append([])
-
     ws.append(["ESTATÍSTICAS"])
     ws[f"A{ws.max_row}"].font = Font(bold=True, size=12)
     ws.append(["Total SAT no período", data.get("sat_linhas_periodo")])
@@ -910,7 +865,6 @@ def comparar_questor_csv(request):
         elif st == "AUTORIZADA":
             ws.cell(row=rix, column=5).fill = status_ok_fill
 
-    # formatos e layout
     for cell in ws.iter_cols(min_col=3, max_col=3, min_row=header_row+1, max_row=ws.max_row):
         for c in cell: c.number_format = "dd/mm/yyyy"
     for cell in ws.iter_cols(min_col=4, max_col=4, min_row=header_row+1, max_row=ws.max_row):
@@ -920,7 +874,6 @@ def comparar_questor_csv(request):
 
     ws.auto_filter.ref = f"A{header_row}:I{ws.max_row}"
     ws.freeze_panes = f"A{header_row+1}"
-    # auto fit e coluna ID maior
     def _autofit(ws, min_w=9, max_w=80):
         for col_idx in range(1, ws.max_column + 1):
             letter = get_column_letter(col_idx)
@@ -940,8 +893,6 @@ def comparar_questor_csv(request):
             ws.column_dimensions[letter].width = max(min_w, min(int(max_len * 1.15), max_w))
     _autofit(ws)
     ws.column_dimensions['G'].width = max(ws.column_dimensions['G'].width or 0, 52)
-
-    # Aba 2: SAT autorizadas fora
     ws2 = wb.create_sheet("SAT autorizadas fora")
     header_row2 = 1
     ws2.append(["Número Documento","Série","Data Emissão","Status SAT",
