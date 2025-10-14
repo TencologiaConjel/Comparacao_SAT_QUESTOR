@@ -5,7 +5,6 @@
 
 {% block content %}
 <div class="row g-4">
-  <!-- Card principal de importação -->
   <div class="col-12 col-lg-8">
     <div class="card shadow-sm border-0">
       <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -21,7 +20,6 @@
           {% csrf_token %}
 
           <div class="row g-3">
-            <!-- Seleção de empresa -->
             <div class="col-md-6">
               <label class="form-label fw-semibold">
                 <i class="fa-solid fa-building me-1 text-muted"></i>
@@ -37,7 +35,6 @@
               </select>
             </div>
 
-            <!-- Upload de arquivo -->
             <div class="col-md-6">
               <label for="arquivo" class="form-label fw-semibold">
                 <i class="fa-solid fa-file-excel me-1 text-muted"></i>
@@ -57,7 +54,6 @@
               </div>
             </div>
 
-            <!-- Preview do arquivo selecionado -->
             <div class="col-12" id="file-preview" style="display:none;" aria-live="polite">
               <div class="alert alert-info d-flex align-items-center">
                 <i class="fa-solid fa-file-excel fa-2x me-3"></i>
@@ -70,7 +66,6 @@
               </div>
             </div>
 
-            <!-- Botões -->
             <div class="col-12">
               <div class="d-grid gap-2 d-md-block">
                 <button type="submit" class="btn btn-primary btn-lg px-4" id="btn-import">
@@ -86,7 +81,6 @@
           </div>
         </form>
 
-        <!-- Progresso -->
         <div id="progress-container" style="display:none;" class="mt-4" aria-live="polite">
           <div class="d-flex justify-content-between mb-2">
             <small class="text-muted">Processando arquivo...</small>
@@ -213,9 +207,8 @@
     progressText.textContent = '0%';
   });
 
-  // Submit
   form.addEventListener('submit', function(e) {
-    if (btn.disabled) { e.preventDefault(); return; } // evita duplo submit
+    if (btn.disabled) { e.preventDefault(); return; }
 
     if (!empresaSelect.value) {
       e.preventDefault(); showToast('Por favor, selecione uma empresa', 'warning');
@@ -239,7 +232,6 @@
     }, 200);
   });
 
-  // Acessibilidade/feedback visual
   empresaSelect.addEventListener('change', function() {
     if (this.value) {
       this.classList.add('border-success');
@@ -247,7 +239,6 @@
     }
   });
 
-  // Limpa o intervalo ao trocar de página
   window.addEventListener('beforeunload', function() {
     if (progressInterval) clearInterval(progressInterval);
   });
