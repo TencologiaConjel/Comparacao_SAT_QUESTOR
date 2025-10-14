@@ -182,7 +182,6 @@
     new bootstrap.Toast(toast).show();
   }
 
-  // Preview do arquivo
   inputFile.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) { filePreview.style.display = 'none'; return; }
@@ -201,12 +200,10 @@
     filePreview.style.display = 'block';
   });
 
-  // Limpar arquivo
   clearFile.addEventListener('click', function() {
     inputFile.value = ''; filePreview.style.display = 'none';
   });
 
-  // Reset
   btnReset.addEventListener('click', function() {
     filePreview.style.display = 'none';
     progressContainer.style.display = 'none';
