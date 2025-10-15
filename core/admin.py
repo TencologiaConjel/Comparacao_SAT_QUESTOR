@@ -1,19 +1,20 @@
 from django.contrib import admin
-
-from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django import forms
 from django.core.exceptions import ValidationError
+from django.contrib import admin
+from django.utils.safestring import mark_safe
+import json
+from .models import Empresa, SatRegistro, Documentos, LoginLog
 
-# Form de criação que inclui e-mail
 class UserCreationEmailForm(forms.ModelForm):
     password1 = forms.CharField(label='Senha', widget=forms.PasswordInput)
     password2 = forms.CharField(label='Confirmação de senha', widget=forms.PasswordInput)
 
     class Meta:
         model = User
-        fields = ('username', 'email')  # agora o e-mail aparece no "Adicionar"
+        fields = ('username', 'email')  
 
     def clean_email(self):
         email = (self.cleaned_data.get('email') or '').strip().lower()
@@ -50,20 +51,12 @@ class CustomUserAdmin(BaseUserAdmin):
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
-# core/admin.py
-from django.contrib import admin
-from django.utils.safestring import mark_safe
-import json
-
-from .models import Empresa, SatRegistro, Documentos, LoginLog
-
 
 @admin.register(Empresa)
 class EmpresaAdmin(admin.ModelAdmin):
     list_display = ("nome", "cnpj")
     search_fields = ("nome", "cnpj")
     ordering = ("nome",)
-
 
 @admin.register(SatRegistro)
 class SatRegistroAdmin(admin.ModelAdmin):
@@ -97,7 +90,6 @@ class SatRegistroAdmin(admin.ModelAdmin):
             content = str(obj.data)
         return mark_safe(f"<pre style='max-width:100%;white-space:pre-wrap;'>{content}</pre>")
     data_pretty.short_description = "Dados (JSON)"
-
 
 @admin.register(Documentos)
 class DocumentosAdmin(admin.ModelAdmin):
