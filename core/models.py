@@ -1,7 +1,6 @@
 from django.db import models
 from django.conf import settings
 
-# --- LOG DE LOGIN ---
 class LoginLog(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
@@ -43,7 +42,6 @@ class EmpresaOwnedModel(models.Model):
         abstract = True
 
 
-# --- TABELA "CHEIA" (se você for usar por campos) ---
 class Documentos(EmpresaOwnedModel):
     periododereferencia = models.CharField(max_length=255, blank=True, null=True)
     modelodocumento = models.CharField(max_length=255, blank=True, null=True)
@@ -129,7 +127,6 @@ from django.db.models import Q
 class SatRegistro(models.Model):
     data_emissao = models.DateField(db_index=True, blank=True, null=True)
 
-    # 🔹 NOVO: 1º dia do mês da emissão (AAAA-MM-01)
     competencia = models.DateField(db_index=True, blank=True, null=True)
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="sat_registros")
@@ -148,8 +145,6 @@ class SatRegistro(models.Model):
         verbose_name = "Registro SAT (linha)"
         verbose_name_plural = "Registros SAT (linhas)"
         constraints = [
-            # ❌ remova a antiga: Unique(empresa, sheet, row)
-            # ✅ nova: única por competência
             models.UniqueConstraint(
                 fields=["empresa", "competencia", "sheet", "row"],
                 name="uniq_emp_comp_sheet_row",
