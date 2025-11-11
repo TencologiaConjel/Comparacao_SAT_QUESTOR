@@ -411,14 +411,20 @@ def _row_to_norm_dict(headers, row):
 
 CANDS_VALOR_NOTA = [
     "valor_total_nota","valor_total_notas","valor_total","valortotal","vl_total","valor",
-    "valornfe","valor_nfce","valor_total_nfe"
+    "valornfe","valor_nfce","valor_total_nfe",
+    "valortotalnota", "valor_totalnota"  
 ]
+
 CANDS_BC_ICMS = [
     "bc_icms","base_icms","base_de_calculo_icms","basecalc_icms","valor_bc_icms","basecalculo_icms",
+    "valorbasecalculoicms", "vbc"  
 ]
+
 CANDS_VALOR_ICMS = [
     "valor_icms","vl_icms","vlr_icms","valor_do_icms","vlicms","v_icms",
+    "valortotalicms","valor_total_icms"  
 ]
+
 
 def _extr_decimal_by_keys(d: dict, candidates) -> Decimal:
     k = _first_key(d, candidates)
