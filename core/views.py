@@ -46,12 +46,17 @@ def _parse_decimal(v):
     if v is None:
         return Decimal("0")
     s = str(v).strip().replace("R$", "").replace(" ", "")
-    if "," in s and s.count(",") == 1:
+    if re.match(r"^\d{1,3}(\.\d{3})*,\d+$", s):
         s = s.replace(".", "").replace(",", ".")
+    elif re.match(r"^\d{1,3}(,\d{3})*\.\d+$", s):
+        s = s.replace(",", "")
+    else:
+        s = s.replace(",", ".")
     try:
         return Decimal(s)
     except InvalidOperation:
         return Decimal("0")
+
 
 def _is_cancelado(txt: str) -> bool:
     return bool(txt) and "cancel" in str(txt).strip().lower()
