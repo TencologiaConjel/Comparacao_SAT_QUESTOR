@@ -151,31 +151,39 @@ _DT_FMTS = (
 )
 
 def _parse_date_any(v) -> date | None:
-    if v is None:
+    """Tenta converter qualquer valor em data de forma segura."""
+    if v is None or v == "":
         return None
     if isinstance(v, date) and not isinstance(v, datetime):
         return v
     if isinstance(v, datetime):
         return v.date()
+
     s = str(v).strip()
     if not s:
         return None
     s_norm = s.replace("T", " ").replace("Z", "")
     if "." in s_norm:
         s_norm = s_norm.split(".")[0]
+
     for fmt in _DT_FMTS:
         try:
             return datetime.strptime(s_norm, fmt).date()
         except Exception:
-            pass
-    if s.isdigit():
-        try:
-            n = int(s)
-            if 20000 <= n <= 80000:
-                return date(1899, 12, 30) + timedelta(days=n)
-        except Exception:
-            pass
+            continue
+
+    try:
+        if isinstance(v, (int, float)):
+            base = date(1899, 12, 30)
+            return base + timedelta(days=float(v))
+        if s.isdigit() and 20000 <= int(s) <= 80000:
+            base = date(1899, 12, 30)
+            return base + timedelta(days=int(s))
+    except Exception:
+        return None
+
     return None
+
 
 def _extr_data_emissao_dict(d: dict) -> date | None:
     k = _first_key(d, [
@@ -292,19 +300,27 @@ def sat_importar(request):
                 val = row[i] if i < len(row) else None
                 if val not in (None, ""):
                     vazio = False
-                data[key] = None if val in (None, "") else str(val)
+                # conversão segura para string
+                try:
+                    data[key] = None if val in (None, "") else str(val)
+                except Exception:
+                    data[key] = str(val).encode("utf-8", "ignore").decode("utf-8")
 
             if vazio:
                 ignorados_vazios += 1
                 continue
 
-            desc  = (data.get("descricao") or data.get("descricao_produto") or data.get("descricao_mercadoria"))
-            cst   = (data.get("cst_csosn") or data.get("cst") or data.get("csosn"))
-            dt_em = _extr_data_emissao_dict(data)
-            competencia = _competencia_from_date(dt_em) or comp_param  # pode ser None
+            try:
+                desc  = (data.get("descricao") or data.get("descricao_produto") or data.get("descricao_mercadoria"))
+                cst   = (data.get("cst_csosn") or data.get("cst") or data.get("csosn"))
+                dt_em = _extr_data_emissao_dict(data)
+                competencia = _competencia_from_date(dt_em) or comp_param
+            except Exception as e:
+                print(f"[WARN] Linha {r} - falha ao extrair campos: {e}")
+                ignorados_vazios += 1
+                continue
 
             unique_key = (empresa.id, competencia, sheet_name, r)
-
             if unique_key in exist_map:
                 reg = exist_map[unique_key]
                 reg.data = data
