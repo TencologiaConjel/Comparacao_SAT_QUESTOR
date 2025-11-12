@@ -354,12 +354,12 @@ def sat_importar(request):
                         to_create.clear()
                     if len(to_update) >= BATCH:
                         SatRegistro.objects.bulk_update(
-                            to_update,
-                            fields=["data", "descricao", "ncm", "cfop", "cest", "cst_csosn", "data_emissao", "competencia"],
-                            batch_size=BATCH,
-                        )
-                        to_update.clear()
-
+                                to_update,
+                                fields=["descricao","ncm","cfop","cest","cst_csosn","data_emissao","competencia"],
+                                batch_size=BATCH,
+                            )
+                    for reg in to_update:
+                        SatRegistro.objects.filter(pk=reg.pk).update(data=reg.data)
                 except Exception as e:
                     print(f"[WARN] Falha linha {r} da aba {sheet_name}: {e}")
                     continue
