@@ -1,1 +1,1 @@
-web: gunicorn solucao_questor.wsgi --timeout 400
+web: gunicorn solucao_questor.wsgi
