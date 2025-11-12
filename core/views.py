@@ -283,7 +283,7 @@ def sat_importar(request):
     try:
         exist_map = {
             (empresa.id, reg.competencia, reg.sheet, reg.row): reg
-            for reg in SatRegistro.objects.filter(empresa=empresa).only("competencia", "sheet", "row")
+            for reg in SatRegistro.objects.filter(empresa=empresa).only("id", "competencia", "sheet", "row")
         }
     except Exception as e:
         messages.error(request, f"Erro ao consultar registros existentes: {e}")
@@ -352,20 +352,22 @@ def sat_importar(request):
                     if len(to_create) >= BATCH:
                         SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
                         to_create.clear()
+                    
                     if len(to_update) >= BATCH:
                         SatRegistro.objects.bulk_update(
-                                to_update,
-                                fields=["descricao","ncm","cfop","cest","cst_csosn","data_emissao","competencia"],
-                                batch_size=BATCH,
-                            )
-                    for reg in to_update:
-                        SatRegistro.objects.filter(pk=reg.pk).update(data=reg.data)
+                            to_update,
+                            fields=["data", "descricao", "ncm", "cfop", "cest", "cst_csosn", "data_emissao", "competencia"],
+                            batch_size=BATCH,
+                        )
+                        to_update.clear()
+                        
                 except Exception as e:
                     print(f"[WARN] Falha linha {r} da aba {sheet_name}: {e}")
                     continue
 
         if to_create:
             SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
+        
         if to_update:
             SatRegistro.objects.bulk_update(
                 to_update,
