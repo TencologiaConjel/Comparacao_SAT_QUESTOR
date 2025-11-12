@@ -254,7 +254,6 @@ def painel_inicial(request):
 
 @login_required
 @require_POST
-@transaction.atomic
 def sat_importar(request):
     empresa_id = request.POST.get("empresa_id")
     arquivo    = request.FILES.get("arquivo")
@@ -321,6 +320,7 @@ def sat_importar(request):
                 continue
 
             unique_key = (empresa.id, competencia, sheet_name, r)
+
             if unique_key in exist_map:
                 reg = exist_map[unique_key]
                 reg.data = data
