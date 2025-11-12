@@ -256,7 +256,7 @@ def painel_inicial(request):
 @require_POST
 def sat_importar(request):
     empresa_id = request.POST.get("empresa_id")
-    arquivo    = request.FILES.get("arquivo")
+    arquivo = request.FILES.get("arquivo")
     comp_param = _parse_competencia_str(request.POST.get("competencia"))
 
     if not empresa_id:
@@ -275,109 +275,118 @@ def sat_importar(request):
         return redirect("painel_inicial")
 
     inicio = time.time()
-    BATCH = 500
     criados = atualizados = ignorados_vazios = 0
-    to_create: list[SatRegistro] = []
-    to_update: list[SatRegistro] = []
-    exist_map: dict[tuple, SatRegistro] = {}
-    for reg in SatRegistro.objects.filter(empresa=empresa).only("competencia", "sheet", "row"):
-        exist_map[(empresa.id, reg.competencia, reg.sheet, reg.row)] = reg
+    to_create = []
+    to_update = []
+    BATCH = 500
 
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows = ws.iter_rows(values_only=True)
-        try:
-            headers = next(rows)
-        except StopIteration:
-            continue
+    try:
+        exist_map = {
+            (empresa.id, reg.competencia, reg.sheet, reg.row): reg
+            for reg in SatRegistro.objects.filter(empresa=empresa).only("competencia", "sheet", "row")
+        }
+    except Exception as e:
+        messages.error(request, f"Erro ao consultar registros existentes: {e}")
+        return redirect("painel_inicial")
 
-        header_keys = [_slugify_field(h) for h in headers]
-
-        for r, row in enumerate(rows, start=2):
-            data, vazio = {}, True
-            for i, key in enumerate(header_keys):
-                val = row[i] if i < len(row) else None
-                if val not in (None, ""):
-                    vazio = False
-                # conversão segura para string
-                try:
-                    data[key] = None if val in (None, "") else str(val)
-                except Exception:
-                    data[key] = str(val).encode("utf-8", "ignore").decode("utf-8")
-
-            if vazio:
-                ignorados_vazios += 1
-                continue
-
+    try:
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = ws.iter_rows(values_only=True)
             try:
-                desc  = (data.get("descricao") or data.get("descricao_produto") or data.get("descricao_mercadoria"))
-                cst   = (data.get("cst_csosn") or data.get("cst") or data.get("csosn"))
-                dt_em = _extr_data_emissao_dict(data)
-                competencia = _competencia_from_date(dt_em) or comp_param
-            except Exception as e:
-                print(f"[WARN] Linha {r} - falha ao extrair campos: {e}")
-                ignorados_vazios += 1
+                headers = next(rows)
+            except StopIteration:
                 continue
 
-            unique_key = (empresa.id, competencia, sheet_name, r)
+            header_keys = [_slugify_field(h) for h in headers]
 
-            if unique_key in exist_map:
-                reg = exist_map[unique_key]
-                reg.data = data
-                reg.descricao = desc
-                reg.ncm = data.get("ncm")
-                reg.cfop = data.get("cfop")
-                reg.cest = data.get("cest")
-                reg.cst_csosn = cst
-                reg.data_emissao = dt_em
-                reg.competencia  = competencia
-                to_update.append(reg)
-                atualizados += 1
-            else:
-                obj = SatRegistro(
-                    empresa=empresa,
-                    sheet=sheet_name,
-                    row=r,
-                    data=data,
-                    descricao=desc,
-                    ncm=data.get("ncm"),
-                    cfop=data.get("cfop"),
-                    cest=data.get("cest"),
-                    cst_csosn=cst,
-                    data_emissao=dt_em,
-                    competencia=competencia,
-                )
-                to_create.append(obj)
-                criados += 1
-                exist_map[unique_key] = obj
+            for r, row in enumerate(rows, start=2):
+                try:
+                    data, vazio = {}, True
+                    for i, key in enumerate(header_keys):
+                        val = row[i] if i < len(row) else None
+                        if val not in (None, ""):
+                            vazio = False
+                        data[key] = None if val in (None, "") else str(val)
 
-            if len(to_create) >= BATCH:
-                SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
-                to_create.clear()
-            if len(to_update) >= BATCH:
-                SatRegistro.objects.bulk_update(
-                    to_update,
-                    fields=["data","descricao","ncm","cfop","cest","cst_csosn","data_emissao","competencia"],
-                    batch_size=BATCH,
-                )
-                to_update.clear()
+                    if vazio:
+                        ignorados_vazios += 1
+                        continue
 
-    if to_create:
-        SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
-    if to_update:
-        SatRegistro.objects.bulk_update(
-            to_update,
-            fields=["data","descricao","ncm","cfop","cest","cst_csosn","data_emissao","competencia"],
-            batch_size=BATCH,
+                    desc = (data.get("descricao") or data.get("descricao_produto") or data.get("descricao_mercadoria"))
+                    cst = (data.get("cst_csosn") or data.get("cst") or data.get("csosn"))
+                    dt_em = _extr_data_emissao_dict(data)
+                    competencia = _competencia_from_date(dt_em) or comp_param
+                    unique_key = (empresa.id, competencia, sheet_name, r)
+
+                    if unique_key in exist_map:
+                        reg = exist_map[unique_key]
+                        reg.data = data
+                        reg.descricao = desc
+                        reg.ncm = data.get("ncm")
+                        reg.cfop = data.get("cfop")
+                        reg.cest = data.get("cest")
+                        reg.cst_csosn = cst
+                        reg.data_emissao = dt_em
+                        reg.competencia = competencia
+                        to_update.append(reg)
+                        atualizados += 1
+                    else:
+                        obj = SatRegistro(
+                            empresa=empresa,
+                            sheet=sheet_name,
+                            row=r,
+                            data=data,
+                            descricao=desc,
+                            ncm=data.get("ncm"),
+                            cfop=data.get("cfop"),
+                            cest=data.get("cest"),
+                            cst_csosn=cst,
+                            data_emissao=dt_em,
+                            competencia=competencia,
+                        )
+                        to_create.append(obj)
+                        criados += 1
+                        exist_map[unique_key] = obj
+
+                    if len(to_create) >= BATCH:
+                        SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
+                        to_create.clear()
+                    if len(to_update) >= BATCH:
+                        SatRegistro.objects.bulk_update(
+                            to_update,
+                            fields=["data", "descricao", "ncm", "cfop", "cest", "cst_csosn", "data_emissao", "competencia"],
+                            batch_size=BATCH,
+                        )
+                        to_update.clear()
+
+                except Exception as e:
+                    print(f"[WARN] Falha linha {r} da aba {sheet_name}: {e}")
+                    continue
+
+        if to_create:
+            SatRegistro.objects.bulk_create(to_create, batch_size=BATCH, ignore_conflicts=True)
+        if to_update:
+            SatRegistro.objects.bulk_update(
+                to_update,
+                fields=["data", "descricao", "ncm", "cfop", "cest", "cst_csosn", "data_emissao", "competencia"],
+                batch_size=BATCH,
+            )
+
+        duracao = round(time.time() - inicio, 2)
+        messages.success(
+            request,
+            f"Importação concluída para '{empresa.nome}'. "
+            f"Criados: {criados} • Atualizados: {atualizados} • Ignorados vazios: {ignorados_vazios} • Tempo: {duracao}s."
         )
 
-    duracao = round(time.time() - inicio, 2)
-    messages.success(
-        request,
-        f"Importação concluída para '{empresa.nome}'. "
-        f"Criados: {criados} • Atualizados: {atualizados} • Ignorados vazios: {ignorados_vazios} • Tempo: {duracao}s."
-    )
+    except Exception as e:
+        print(f"[ERRO GERAL sat_importar] {type(e).__name__}: {e}")
+        messages.error(request, f"Ocorreu um erro durante a importação: {e}")
+        return redirect("painel_inicial")
+
     return redirect("painel_inicial")
+
 
 @login_required
 def comparar_questor_form(request):
